@@ -1,0 +1,32 @@
+body {
+  width: 100%;
+  font-family: Helvetica;
+}
+.cards {
+  display: inline-block;
+  height: 40px;
+  margin: 10px;
+}
+.card {
+  display: inline-block;
+  width: 30px;
+  height: 40px;
+  margin-right: 10px;
+  text-align: center;
+  background-color: #333;
+}
+.card .card-title {
+  color: #fff;
+  font-size: 17px;
+  line-height: 40px;
+}
+.card.big {
+  width: 50px;
+  height: 60px;
+}
+.card.big .card-title {
+  line-height: 60px;
+}
+.user-name.active {
+  color: #f00;
+}

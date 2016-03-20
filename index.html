@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>UNO</title>
+  <link href="index.css" rel="stylesheet">
+</head>
+<body>
+  <div id="game">
+    <div id="users">
+      <div class="user" v-for="(userName, user) in users">
+        <div class="user-name" v-bind:class="{'active': isActiveUser(userName)}">{{ userName }}</div>
+        <div class="cards">
+          <!-- card要素にv-ifをつけると、card要素がx-templateで置き換えられた後でv-elseのcard要素が来るが、
+               置換されたためv-ifが直後にいないので、無視されてしまう -->
+          <template v-if="isActiveUser(userName)">
+            <card v-for="card in user.handCards" :card="card" v-on:click="onClickedHandCard(card)"></card> <!-- v-bindで使う! -->
+          </template>
+          <template v-else>
+            <card v-for="card in user.handCards" :card="card"></card> <!-- activeでないユーザーはカードを捨てられない -->
+          </template>
+        </div>
+      </div>
+    </div>
+    <div id="discard-area">
+      <card :card="lastDiscardCard" class="big"></card>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.18/vue.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore.js"></script>
+
+  <script id="card" type="text/x-template">
+    <div class="card">
+      <span class="card-title">{{ card }}</span>
+    </div>
+  </script>
+
+  <script type="text/javascript">
+    Vue.component("card", {
+      template: "#card",
+      props: ["card"]
+    })
+
+    var vm = new Vue({
+      el: "#game",
+      data: {
+        cards: [1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0],
+        userNames: ["john", "mike"],
+        drawCards: [], // 後ろに行くほど上
+        discardCards: [],
+        users: {}, // { "username": { handCards: [] } }
+        activeUserIndex: 0 // ターンが回っているuser
+      },
+      created: function() {
+        var self = this
+
+        _.each(this.userNames, function(userName) { // user setup
+          self.users[userName] = {
+            handCards: []
+          }
+        })
+
+        this.drawCards = _.shuffle(this.cards)
+
+        _.each(this.users, function(user, userName){
+          self.draw(userName, 4)
+        })
+      },
+      computed: {
+        activeUser: function() {
+          return this.userNames[this.activeUserIndex % this.userNames.length]
+        },
+        lastDiscardCard: function() {
+          if (this.discardCards.length == 0) {
+            return "None"
+          }
+
+          return _.last(this.discardCards)
+        },
+      },
+      methods: {
+        draw: function(userName, amount) {
+          var self = this
+          _.times(amount, function(n) {
+            self.users[userName].handCards.push( self.drawCards.pop() )
+          })
+        },
+        discard: function(userName, card) {
+          this.users[userName].handCards = _.without(this.users[userName].handCards, card) // なぜかturn()時に反映される
+          this.discardCards.push(card)
+        },
+        turn: function() {
+          this.activeUserIndex++
+        },
+        isActiveUser: function(userName) {
+          return this.activeUser === userName
+        },
+        onClickedHandCard: function(card) {
+          this.discard(this.activeUser, card)
+          this.turn()
+        }
+      }
+    });
+  </script>
+</body>
+</html>
