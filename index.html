@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>UNO</title>
+  <title>ino</title>
   <link href="index.css" rel="stylesheet">
 </head>
 <body>
@@ -31,8 +31,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore.js"></script>
 
   <script id="card" type="text/x-template">
-    <div class="card">
-      <span class="card-title">{{ card }}</span>
+    <div class="card {{ card.color }}">
+      <span class="card-title">{{ card.number }}</span>
     </div>
   </script>
 
@@ -45,7 +45,51 @@
     var vm = new Vue({
       el: "#game",
       data: {
-        cards: [1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0],
+        cards: [
+          { color: "red", number: 1 },
+          { color: "red", number: 2 },
+          { color: "red", number: 3 },
+          { color: "red", number: 4 },
+          { color: "red", number: 5 },
+          { color: "red", number: 6 },
+          { color: "red", number: 7 },
+          { color: "red", number: 8 },
+          { color: "red", number: 9 },
+          { color: "red", number: 0 },
+
+          { color: "blue", number: 1 },
+          { color: "blue", number: 2 },
+          { color: "blue", number: 3 },
+          { color: "blue", number: 4 },
+          { color: "blue", number: 5 },
+          { color: "blue", number: 6 },
+          { color: "blue", number: 7 },
+          { color: "blue", number: 8 },
+          { color: "blue", number: 9 },
+          { color: "blue", number: 0 },
+
+          { color: "yellow", number: 1 },
+          { color: "yellow", number: 2 },
+          { color: "yellow", number: 3 },
+          { color: "yellow", number: 4 },
+          { color: "yellow", number: 5 },
+          { color: "yellow", number: 6 },
+          { color: "yellow", number: 7 },
+          { color: "yellow", number: 8 },
+          { color: "yellow", number: 9 },
+          { color: "yellow", number: 0 },
+
+          { color: "green", number: 1 },
+          { color: "green", number: 2 },
+          { color: "green", number: 3 },
+          { color: "green", number: 4 },
+          { color: "green", number: 5 },
+          { color: "green", number: 6 },
+          { color: "green", number: 7 },
+          { color: "green", number: 8 },
+          { color: "green", number: 9 },
+          { color: "green", number: 0 },
+        ],
         userNames: ["john", "mike"],
         drawCards: [], // 後ろに行くほど上
         discardCards: [],

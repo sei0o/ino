@@ -27,6 +27,18 @@ body {
 .card.big .card-title {
   line-height: 60px;
 }
+.card.red {
+  background-color: #ea5550;
+}
+.card.blue {
+  background-color: #4496d3;
+}
+.card.green {
+  background-color: #65ab31;
+}
+.card.yellow {
+  background-color: #fcc800;
+}
 .user-name.active {
   color: #f00;
 }
