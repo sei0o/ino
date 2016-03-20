@@ -140,6 +140,18 @@
         isActiveUser: function(userName) {
           return this.activeUser === userName
         },
+        isDiscardable: function(card) {
+          if (this.lastDiscardCard.number === card.number ||
+              this.lastDiscardCard.color  === card.color  ||
+              this.lastDiscardCard === "None") {
+            return true
+          }
+
+          return false
+        },
+        canDiscard: function(userName, card) {
+          return this.isActiveUser(userName) && this.isDiscardable(card)
+        },
         onClickedHandCard: function(card) {
           this.discard(this.activeUser, card)
           this.turn()
