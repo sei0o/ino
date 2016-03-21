@@ -7,6 +7,14 @@
 </head>
 <body>
   <div id="game">
+    <div id="setup">
+      名前: <span v-for="userName in setupData.userNames" class="setup-user-name">{{ userName }}</span>
+      <input type="text" v-model="newUserName">
+      <button class="add-user" @click="addUser">追加</button><br>
+      初期カード枚数 <input type="number" v-model="setupData.numberOfCards">
+      <button class="start-game" @click="startGame()">ゲームスタート</button>
+    </div>
+
     <div id="users">
       <div class="user" v-for="(userName, user) in users" v-bind:class="{'active': isActiveUser(userName), 'finished': user.finished}">
         <div class="user-name">{{ userName }}</div>
@@ -59,6 +67,10 @@
     var vm = new Vue({
       el: "#game",
       data: {
+        setupData: {
+          userNames: [],
+          numberOfCards: 4
+        },
         cards: [
           { color: "red", number: 1 },
           { color: "red", number: 2 },
@@ -107,7 +119,7 @@
         activeUserIndex: 0 // ターンが回っているuser
       },
       created: function() {
-        this.setup(["JavaScripter", "Rubyist", "Lisper"], 6)
+
       },
       computed: {
         userNames: function() {
@@ -128,8 +140,18 @@
         }
       },
       methods: {
+        addUser: function() {
+          this.setupData.userNames.push(this.newUserName)
+          this.newUserName = ""
+        },
+        startGame: function() {
+          this.setup(this.setupData.userNames, this.setupData.numberOfCards)
+        },
         setup: function(userNames, numberOfCards) {
           var self = this
+
+          this.discardCards = []
+          this.activeUserIndex = 0
 
           _.each(userNames, function(userName) { // user setup
             self.users[userName] = {
@@ -143,6 +165,9 @@
           _.each(this.users, function(user, userName){
             self.draw(userName, numberOfCards)
           })
+
+          this.users = _.cloneDeep(this.users) //  まるごと入れ替えないと、Vueは検知できない(this.discard()参照)
+          this.drawCards = _.cloneDeep(this.drawCards)
         },
         draw: function(userName, amount) {
           var self = this
@@ -172,8 +197,8 @@
           if (this.users[this.activeUser].finished) { this.turn() }
         },
         endGame: function() {
-          alert("ゲームを終わります。")
-          this.setup()
+          alert("ゲームが終わりました。再開します。")
+          this.setup(this.setupData.userNames, this.setupData.numberOfCards)
         },
         isActiveUser: function(userName) {
           return this.activeUser === userName

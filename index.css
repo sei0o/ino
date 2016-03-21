@@ -45,3 +45,9 @@ body {
 .user.finished .user-name {
   color: #00f;
 }
+#setup {
+  margin-bottom: 10px;
+}
+#setup .setup-user-name {
+  margin-right: 10px;
+}
