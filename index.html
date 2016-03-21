@@ -78,6 +78,36 @@
           userNames: [],
           numberOfCards: 4
         },
+        cardTypes: {
+          "reverse": {
+            shortName: "R",
+            effect: function(resolve) { // this.effectCard()に渡されるPromiseのresolve
+              vm.reverse()
+              resolve()
+            }
+          },
+          "skip": {
+            shortName: "⛔",
+            effect: function(resolve) {
+              vm.skip(vm.activeUserName, 1)
+              resolve()
+            }
+          },
+          "wild": {
+            shortName: "W",
+            effect: function(resolve) {
+              vm.selectingColor = vm.activeUserName
+              $(document).on("click", ".wild > button", function(event){
+                var a = _.cloneDeep(vm.lastDiscardCard) // this.discard()と同じ
+                a.color = $(event.target).data("color")
+                vm.discardCards.push( a )
+
+                resolve()
+                vm.selectingColor = false
+              })
+            }
+          },
+        },
         cards: [
           { color: "red", number: 1 },
           { color: "red", number: 2 },
@@ -135,10 +165,18 @@
           { type: "wild" },
           { type: "wild" },
           { type: "wild" },
+          { type: "skip", color: "red" },
+          { type: "skip", color: "blue" },
+          { type: "skip", color: "yellow" },
+          { type: "skip", color: "green" },
+          { type: "skip", color: "red" },
+          { type: "skip", color: "blue" },
+          { type: "skip", color: "yellow" },
+          { type: "skip", color: "green" },
         ],
         drawCards: [], // 後ろに行くほど上
         discardCards: [],
-        users: {}, // { "username": { handCards: [] } }
+        users: {},
         activeUserIndex: 0, // ターンが回っているuser
         direction: +1,
         selectingColor: false,
@@ -150,8 +188,28 @@
         userNames: function() {
           return _.keys(this.users)
         },
-        activeUser: function() {
+        activeUserName: function() {
           return this.userNames[this.activeUserIndex] // もともとは activeUserIndex % userNames.length
+        },
+        activeUser: function() {
+          return this.users[this.activeUserName]
+        },
+        nextUserName: function() {
+          return this.userNames[this.nextUserIndex]
+        },
+        nextUser: function() {
+          return this.users[this.nextUserName]
+        },
+        nextUserIndex: function() { // より良くしたい(this.userNamesを循環リストにできたら...)
+          var next = this.activeUserIndex + this.direction // 方向に合わせて1人ずらす
+
+          if (next < 0) { // マイナスにするとめんどくさい
+            next = this.userNames.length - 1 // lengthが3とすると、0から2になる
+          } else if (next >= this.userNames.length) { // lengthが3とすると、2から0にする
+            next = 0
+          }
+
+          return next
         },
         lastDiscardCard: function() {
           if (this.discardCards.length == 0) {
@@ -179,15 +237,15 @@
           this.activeUserIndex = 0
           this.selectingColor = false
           this.direction = +1
+          this.chargeDrawCards()
 
           _.each(userNames, function(userName) { // user setup
             self.users[userName] = {
               handCards: [],
-              finished: false
+              finished: false,
+              remainingSkip: 0,
             }
           })
-
-          this.drawCards = _.shuffle(this.cards)
 
           _.each(this.users, function(user, userName){
             self.draw(userName, numberOfCards)
@@ -217,57 +275,42 @@
           // see: http://qiita.com/koki_cheese/items/c559da338a3d307c9d88
           // ユーザーの操作を待つ
           return new Promise(function(resolve, reject){
-            switch(card.type) {
-              case "reverse":
-                self.reverse()
-                resolve()
-                break
-              case "wild":
-                self.selectingColor = self.activeUser
-                $(document).on("click", ".wild > button", function(event){
-                  var a = _.cloneDeep(self.lastDiscardCard) // this.discard()と同じ
-                  a.color = $(event.target).data("color")
-                  self.discardCards.push( a )
-
-                  resolve()
-                  self.selectingColor = false
-                })
-                break
-              default:
-                resolve()
+            if (card.type) {
+              self.cardTypes[card.type].effect(resolve)
+            } else {
+              resolve()
             }
           })
         },
         reverse: function() {
           this.direction *= -1 // 方向逆転
         },
+        skip: function(userName, times) {
+          this.nextUser.remainingSkip += times
+        },
         chargeDrawCards: function() {
-          this.drawCards = _.tail(this.discardCards) // 一番古い(一番下の)カードを残してdrawCardsへ
+          this.drawCards = _.shuffle(this.cards)
           this.discardCards = []
         },
         finishUser: function(userName) {
           alert(userName + "があがりました")
           this.users[userName].finished = true
         },
-        turn: function() { // より良くしたいメソッドNo.2
-          this.activeUserIndex += this.direction // 方向に合わせて1人ずらす
+        turn: function() {
+          this.activeUserIndex = this.nextUserIndex
 
-          var a = this.activeUserIndex
-          if (this.activeUserIndex < 0) { // マイナスにするとめんどくさい
-            this.activeUserIndex = this.userNames.length - 1 // lengthが3とすると、0から2になる
-          } else if (this.activeUserIndex >= this.userNames.length) { // lengthが3とすると、2から0にする
-            this.activeUserIndex = 0
+          if (this.activeUser.finished) { this.turn() }
+          if (this.activeUser.remainingSkip > 0) {
+            this.activeUser.remainingSkip--
+            this.turn()
           }
-          console.log(a ,this.activeUserIndex)
-
-          if (this.users[this.activeUser].finished) { this.turn() }
         },
         endGame: function() {
           alert("ゲームが終わりました。再開します。")
           this.setup(this.setupData.userNames, this.setupData.numberOfCards)
         },
         isActiveUser: function(userName) {
-          return this.activeUser === userName
+          return this.activeUserName === userName
         },
         isDiscardable: function(card) { // 命名に悩む
           // number === undefinedだが、number === numberなケース: lastDiscardCardがWild, cardがReverseとか。これは弾く
@@ -302,26 +345,19 @@
           if (this.users[userName].handCards.length === 0) { this.finishUser(userName) }
         },
         shortCardName: function(card) {
-          var short = card.number
-
-          switch (card.type) {
-            case "reverse":
-              short = "R"
-              break
-            case "wild":
-              short = "W"
-              break
+          if (card.type) {
+            return this.cardTypes[card.type].shortName
           }
 
-          return short
+          return card.number
         },
         onClickedHandCard: function(card) {
           var self = this
 
-          this.discard(this.activeUser, card) // 捨ててから効果発動
+          this.discard(this.activeUserName, card) // 捨ててから効果発動
           this.effectCard(card)
             .then(function(){
-              self.checkFinish(self.activeUser)
+              self.checkFinish(self.activeUserName)
               if (self.allUserFinished) {
                 self.endGame()
               } else {
