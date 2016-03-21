@@ -201,7 +201,7 @@
           this.direction *= -1 // 方向逆転
         },
         chargeDrawCards: function() {
-          this.drawCards = this.discardCards
+          this.drawCards = _.tail(this.discardCards) // 一番古い(一番下の)カードを残してdrawCardsへ
           this.discardCards = []
         },
         finishUser: function(userName) {
