@@ -43,8 +43,9 @@
         </div>
       </div>
     </div>
-    <div id="discard-area">
+    <div id="info-area">
       <card :card="lastDiscardCard" class="big"></card>
+      <span v-model="direction"></span>
     </div>
   </div>
 
@@ -53,8 +54,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-beta1/jquery.min.js"></script>
 
   <script id="card" type="text/x-template">
-    <div class="card {{ card.color }} {{ card.number }}">
-      <span class="card-title">{{ card.number }}</span>
+    <div class="card {{ card.color }} {{ card.number }} {{ card.type }}">
+      <span class="card-title">{{ card | shorter }}</span>
     </div>
   </script>
 
@@ -112,11 +113,16 @@
           { color: "green", number: 8 },
           { color: "green", number: 9 },
           { color: "green", number: 0 },
+          { color: "red", type: "reverse" },
+          { color: "blue", type: "reverse" },
+          { color: "yellow", type: "reverse" },
+          { color: "green", type: "reverse" },
         ],
         drawCards: [], // 後ろに行くほど上
         discardCards: [],
         users: {}, // { "username": { handCards: [] } }
-        activeUserIndex: 0 // ターンが回っているuser
+        activeUserIndex: 0, // ターンが回っているuser
+        direction: +1,
       },
       created: function() {
 
@@ -126,7 +132,7 @@
           return _.keys(this.users)
         },
         activeUser: function() {
-          return this.userNames[this.activeUserIndex % this.userNames.length]
+          return this.userNames[this.activeUserIndex] // もともとは activeUserIndex % userNames.length
         },
         lastDiscardCard: function() {
           if (this.discardCards.length == 0) {
@@ -184,6 +190,16 @@
 
           this.discardCards.push(card)
         },
+        effectCard: function(card) {
+          switch(card.type) {
+            case "reverse":
+              this.reverse()
+              break
+          }
+        },
+        reverse: function() {
+          this.direction *= -1 // 方向逆転
+        },
         chargeDrawCards: function() {
           this.drawCards = this.discardCards
           this.discardCards = []
@@ -192,8 +208,15 @@
           alert(userName + "があがりました")
           this.users[userName].finished = true
         },
-        turn: function() {
-          this.activeUserIndex++
+        turn: function() { // より良くしたいメソッドNo.2
+          this.activeUserIndex += this.direction // 方向に合わせて1人ずらす
+
+          if (this.activeUserIndex < 0) { // マイナスにするとめんどくさい
+            this.activeUserIndex = this.userNames.length - 1 // lengthが3とすると、0から2になる
+          } else if (this.activeUserIndex >= this.userNames.length) { // lengthが3とすると、2から0にする
+            this.activeUserIndex = 0
+          }
+
           if (this.users[this.activeUser].finished) { this.turn() }
         },
         endGame: function() {
@@ -226,7 +249,20 @@
         checkFinish: function(userName) {
           if (this.users[userName].handCards.length === 0) { this.finishUser(userName) }
         },
+        shortCardName: function(card) {
+          var short = card.number
+
+          switch (card.type) {
+            case "reverse":
+            short = "R"
+            break
+          }
+
+          return short
+        },
         onClickedHandCard: function(card) {
+          this.effectCard(card)
+
           this.discard(this.activeUser, card)
           this.checkFinish(this.activeUser)
           if (this.allUserFinished) {
@@ -236,7 +272,11 @@
           }
         }
       }
-    });
+    })
+
+    Vue.filter("shorter", function(card){ // {{ Mustache }}の中でthis.~~といったメソッドは動かせない
+      return vm.shortCardName(card)
+    })
   </script>
 </body>
 </html>
