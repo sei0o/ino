@@ -12,13 +12,26 @@
         <div class="user-name" v-bind:class="{'active': isActiveUser(userName)}">{{ userName }}</div>
         <div class="cards">
           <!-- card要素にv-ifをつけると、card要素がx-templateで置き換えられた後でv-elseのcard要素が来るが、
-               置換されたためv-ifが直後にいないので、無視されてしまう -->
-          <template v-if="isActiveUser(userName)">
-            <card v-for="card in user.handCards" :card="card" v-on:click="onClickedHandCard(card)"></card> <!-- v-bindで使う! -->
+               置換されたためv-ifが直前にいないので、無視されてしまう -->
+          <!-- v-ifはv-forとv-ifが入ったtemplate要素自身を操作するから、v-forとv-ifを同じtemplateにつけると、
+               1つ目のcardにv-ifがtrueを返した場合、その後のcardも表示される
+               1つ目のcardにv-ifがfalseを返した場合、その後のcardも表示されなくなる -->
+          <template v-for="card in user.handCards">
+            <template v-if="canDiscard(userName, card)">
+              <card :card="card" @click="onClickedHandCard(card)"></card>
+            </template>
           </template>
-          <template v-else>
-            <card v-for="card in user.handCards" :card="card"></card> <!-- activeでないユーザーはカードを捨てられない -->
+          <template v-for="card in user.handCards">
+            <template v-if="!canDiscard(userName, card)">
+              <card :card="card"></card>
+            </template>
           </template>
+<!--           <template v-for="card in user.handCards" v-if="!canDiscard(userName, card)">
+    <card :card="card"></card> activeでないユーザーはカードを捨てられない
+</template> -->
+        </div>
+        <div class="action">
+          <button class="draw" v-if="shouldDraw(userName)" @click="draw(userName, 1)">Draw 1</button>
         </div>
       </div>
     </div>
@@ -28,10 +41,11 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.18/vue.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.6.1/lodash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-beta1/jquery.min.js"></script>
 
   <script id="card" type="text/x-template">
-    <div class="card {{ card.color }}">
+    <div class="card {{ card.color }} {{ card.number }}">
       <span class="card-title">{{ card.number }}</span>
     </div>
   </script>
@@ -127,12 +141,21 @@
         draw: function(userName, amount) {
           var self = this
           _.times(amount, function(n) {
+            if (self.drawCards.length === 0) { self.chargeDrawCards() } // drawCardsが尽きたら
             self.users[userName].handCards.push( self.drawCards.pop() )
           })
         },
         discard: function(userName, card) {
-          this.users[userName].handCards = _.without(this.users[userName].handCards, card) // なぜかturn()時に反映される
+          var a = _.cloneDeep(this.users) // objectはデフォルトで参照渡しだから、deep copy (lodashのみ, underscoreに無い)
+          a[userName].handCards =  _.without(this.users[userName].handCards, card) // card削除
+          this.users = a // users(vm.data直下のobject)をまるごと入れ替えないと、Vueは検知できずにViewにhandCardsが反映されないみたい
+          // vm.$set("users", a) いらなかった https://vuejs.org/guide/reactivity.html
+
           this.discardCards.push(card)
+        },
+        chargeDrawCards: function() {
+          this.drawCards = this.discardCards
+          this.discardCards = []
         },
         turn: function() {
           this.activeUserIndex++
@@ -140,7 +163,7 @@
         isActiveUser: function(userName) {
           return this.activeUser === userName
         },
-        isDiscardable: function(card) {
+        isDiscardable: function(card) { // 命名に悩む
           if (this.lastDiscardCard.number === card.number ||
               this.lastDiscardCard.color  === card.color  ||
               this.lastDiscardCard === "None") {
@@ -149,8 +172,16 @@
 
           return false
         },
-        canDiscard: function(userName, card) {
+        canDiscard: function(userName, card) { // 命名に悩む
           return this.isActiveUser(userName) && this.isDiscardable(card)
+        },
+        shouldDraw: function(userName) { // カードを引くべきか
+          var self = this
+          var discardables = _.find(this.users[userName].handCards, function(card) {
+            return self.isDiscardable(card)
+          })
+
+          return discardables === undefined && this.isActiveUser(userName)
         },
         onClickedHandCard: function(card) {
           this.discard(this.activeUser, card)
