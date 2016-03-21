@@ -39,6 +39,9 @@ body {
 .card.yellow {
   background-color: #fcc800;
 }
-.user-name.active {
+.user.active .user-name {
   color: #f00;
+}
+.user.finished .user-name {
+  color: #00f;
 }

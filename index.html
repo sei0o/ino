@@ -8,9 +8,9 @@
 <body>
   <div id="game">
     <div id="users">
-      <div class="user" v-for="(userName, user) in users">
-        <div class="user-name" v-bind:class="{'active': isActiveUser(userName)}">{{ userName }}</div>
-        <div class="cards">
+      <div class="user" v-for="(userName, user) in users" v-bind:class="{'active': isActiveUser(userName), 'finished': user.finished}">
+        <div class="user-name">{{ userName }}</div>
+        <div class="cards" v-if="!user.finished">
           <!-- card要素にv-ifをつけると、card要素がx-templateで置き換えられた後でv-elseのcard要素が来るが、
                置換されたためv-ifが直前にいないので、無視されてしまう -->
           <!-- v-ifはv-forとv-ifが入ったtemplate要素自身を操作するから、v-forとv-ifを同じtemplateにつけると、
@@ -30,8 +30,8 @@
     <card :card="card"></card> activeでないユーザーはカードを捨てられない
 </template> -->
         </div>
-        <div class="action">
-          <button class="draw" v-if="shouldDraw(userName)" @click="draw(userName, 1)">Draw 1</button>
+        <div class="action" v-if="!user.finished">
+          <button class="draw" v-if="shouldDraw(userName)" @click="draw(userName, 1)">1枚引く</button>
         </div>
       </div>
     </div>
@@ -70,7 +70,6 @@
           { color: "red", number: 8 },
           { color: "red", number: 9 },
           { color: "red", number: 0 },
-
           { color: "blue", number: 1 },
           { color: "blue", number: 2 },
           { color: "blue", number: 3 },
@@ -81,7 +80,6 @@
           { color: "blue", number: 8 },
           { color: "blue", number: 9 },
           { color: "blue", number: 0 },
-
           { color: "yellow", number: 1 },
           { color: "yellow", number: 2 },
           { color: "yellow", number: 3 },
@@ -92,7 +90,6 @@
           { color: "yellow", number: 8 },
           { color: "yellow", number: 9 },
           { color: "yellow", number: 0 },
-
           { color: "green", number: 1 },
           { color: "green", number: 2 },
           { color: "green", number: 3 },
@@ -104,28 +101,18 @@
           { color: "green", number: 9 },
           { color: "green", number: 0 },
         ],
-        userNames: ["john", "mike"],
         drawCards: [], // 後ろに行くほど上
         discardCards: [],
         users: {}, // { "username": { handCards: [] } }
         activeUserIndex: 0 // ターンが回っているuser
       },
       created: function() {
-        var self = this
-
-        _.each(this.userNames, function(userName) { // user setup
-          self.users[userName] = {
-            handCards: []
-          }
-        })
-
-        this.drawCards = _.shuffle(this.cards)
-
-        _.each(this.users, function(user, userName){
-          self.draw(userName, 4)
-        })
+        this.setup(["JavaScripter", "Rubyist", "Lisper"], 6)
       },
       computed: {
+        userNames: function() {
+          return _.keys(this.users)
+        },
         activeUser: function() {
           return this.userNames[this.activeUserIndex % this.userNames.length]
         },
@@ -136,8 +123,27 @@
 
           return _.last(this.discardCards)
         },
+        allUserFinished: function() {
+          return !_.find(this.users, function(user) { return !user.finished }) // !finishedなユーザがいるか確認
+        }
       },
       methods: {
+        setup: function(userNames, numberOfCards) {
+          var self = this
+
+          _.each(userNames, function(userName) { // user setup
+            self.users[userName] = {
+              handCards: [],
+              finished: false
+            }
+          })
+
+          this.drawCards = _.shuffle(this.cards)
+
+          _.each(this.users, function(user, userName){
+            self.draw(userName, numberOfCards)
+          })
+        },
         draw: function(userName, amount) {
           var self = this
           _.times(amount, function(n) {
@@ -157,8 +163,17 @@
           this.drawCards = this.discardCards
           this.discardCards = []
         },
+        finishUser: function(userName) {
+          alert(userName + "があがりました")
+          this.users[userName].finished = true
+        },
         turn: function() {
           this.activeUserIndex++
+          if (this.users[this.activeUser].finished) { this.turn() }
+        },
+        endGame: function() {
+          alert("ゲームを終わります。")
+          this.setup()
         },
         isActiveUser: function(userName) {
           return this.activeUser === userName
@@ -183,9 +198,17 @@
 
           return discardables === undefined && this.isActiveUser(userName)
         },
+        checkFinish: function(userName) {
+          if (this.users[userName].handCards.length === 0) { this.finishUser(userName) }
+        },
         onClickedHandCard: function(card) {
           this.discard(this.activeUser, card)
-          this.turn()
+          this.checkFinish(this.activeUser)
+          if (this.allUserFinished) {
+            this.endGame()
+          } else {
+            this.turn()
+          }
         }
       }
     });
