@@ -40,6 +40,12 @@
         </div>
         <div class="action" v-if="!user.finished">
           <button class="draw" v-if="shouldDraw(userName)" @click="draw(userName, 1)">1枚引く</button>
+          <div class="wild" v-if="isSelectingColor(userName)">
+            <button data-color="red">赤</button>
+            <button data-color="blue">青</button>
+            <button data-color="yellow">黄</button>
+            <button data-color="green">緑</button>
+          </div>
         </div>
       </div>
     </div>
@@ -117,12 +123,25 @@
           { color: "blue", type: "reverse" },
           { color: "yellow", type: "reverse" },
           { color: "green", type: "reverse" },
+          { color: "red", type: "reverse" },
+          { color: "blue", type: "reverse" },
+          { color: "yellow", type: "reverse" },
+          { color: "green", type: "reverse" },
+          { type: "wild" },
+          { type: "wild" },
+          { type: "wild" },
+          { type: "wild" },
+          { type: "wild" },
+          { type: "wild" },
+          { type: "wild" },
+          { type: "wild" },
         ],
         drawCards: [], // 後ろに行くほど上
         discardCards: [],
         users: {}, // { "username": { handCards: [] } }
         activeUserIndex: 0, // ターンが回っているuser
         direction: +1,
+        selectingColor: false,
       },
       created: function() {
 
@@ -158,6 +177,8 @@
 
           this.discardCards = []
           this.activeUserIndex = 0
+          this.selectingColor = false
+          this.direction = +1
 
           _.each(userNames, function(userName) { // user setup
             self.users[userName] = {
@@ -191,11 +212,31 @@
           this.discardCards.push(card)
         },
         effectCard: function(card) {
-          switch(card.type) {
-            case "reverse":
-              this.reverse()
-              break
-          }
+          var self = this
+
+          // see: http://qiita.com/koki_cheese/items/c559da338a3d307c9d88
+          // ユーザーの操作を待つ
+          return new Promise(function(resolve, reject){
+            switch(card.type) {
+              case "reverse":
+                self.reverse()
+                resolve()
+                break
+              case "wild":
+                self.selectingColor = self.activeUser
+                $(document).on("click", ".wild > button", function(event){
+                  var a = _.cloneDeep(self.lastDiscardCard) // this.discard()と同じ
+                  a.color = $(event.target).data("color")
+                  self.discardCards.push( a )
+
+                  resolve()
+                  self.selectingColor = false
+                })
+                break
+              default:
+                resolve()
+            }
+          })
         },
         reverse: function() {
           this.direction *= -1 // 方向逆転
@@ -211,11 +252,13 @@
         turn: function() { // より良くしたいメソッドNo.2
           this.activeUserIndex += this.direction // 方向に合わせて1人ずらす
 
+          var a = this.activeUserIndex
           if (this.activeUserIndex < 0) { // マイナスにするとめんどくさい
             this.activeUserIndex = this.userNames.length - 1 // lengthが3とすると、0から2になる
           } else if (this.activeUserIndex >= this.userNames.length) { // lengthが3とすると、2から0にする
             this.activeUserIndex = 0
           }
+          console.log(a ,this.activeUserIndex)
 
           if (this.users[this.activeUser].finished) { this.turn() }
         },
@@ -227,16 +270,22 @@
           return this.activeUser === userName
         },
         isDiscardable: function(card) { // 命名に悩む
-          if (this.lastDiscardCard.number === card.number ||
-              this.lastDiscardCard.color  === card.color  ||
-              this.lastDiscardCard === "None") {
+          // number === undefinedだが、number === numberなケース: lastDiscardCardがWild, cardがReverseとか。これは弾く
+          // type === undefinedだが、type === typeなケース: lastDiscardCardが普通のnumber, cardがこれまた普通のnumber
+          if ((card.number !== undefined && this.lastDiscardCard.number === card.number) ||
+              (card.color  !== undefined && this.lastDiscardCard.color  === card.color)  ||
+              (card.type   !== undefined && this.lastDiscardCard.type   === card.type)   ||
+              this.lastDiscardCard === "None" ||
+              this.lastDiscardCard.color === undefined ||
+              card.color === undefined) {
             return true
           }
 
           return false
         },
         canDiscard: function(userName, card) { // 命名に悩む
-          return this.isActiveUser(userName) && this.isDiscardable(card)
+          // ターンが回っている && カードが捨てられる && Wild色選択中でない
+          return this.isActiveUser(userName) && this.isDiscardable(card) && !this.selectingColor
         },
         shouldDraw: function(userName) { // カードを引くべきか
           var self = this
@@ -244,7 +293,10 @@
             return self.isDiscardable(card)
           })
 
-          return discardables === undefined && this.isActiveUser(userName)
+          return discardables === undefined && this.isActiveUser(userName) && !this.selectingColor
+        },
+        isSelectingColor: function(userName) {
+          return this.selectingColor === userName
         },
         checkFinish: function(userName) {
           if (this.users[userName].handCards.length === 0) { this.finishUser(userName) }
@@ -254,22 +306,28 @@
 
           switch (card.type) {
             case "reverse":
-            short = "R"
-            break
+              short = "R"
+              break
+            case "wild":
+              short = "W"
+              break
           }
 
           return short
         },
         onClickedHandCard: function(card) {
-          this.effectCard(card)
+          var self = this
 
-          this.discard(this.activeUser, card)
-          this.checkFinish(this.activeUser)
-          if (this.allUserFinished) {
-            this.endGame()
-          } else {
-            this.turn()
-          }
+          this.discard(this.activeUser, card) // 捨ててから効果発動
+          this.effectCard(card)
+            .then(function(){
+              self.checkFinish(self.activeUser)
+              if (self.allUserFinished) {
+                self.endGame()
+              } else {
+                self.turn()
+              }
+            })
         }
       }
     })
