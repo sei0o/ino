@@ -220,7 +220,7 @@
         },
         allUserFinished: function() {
           return !_.find(this.users, function(user) { return !user.finished }) // !finishedなユーザがいるか確認
-        }
+        },
       },
       methods: {
         addUser: function() {
@@ -331,12 +331,12 @@
           return this.isActiveUser(userName) && this.isDiscardable(card) && !this.selectingColor
         },
         shouldDraw: function(userName) { // カードを引くべきか
-          var self = this
-          var discardables = _.find(this.users[userName].handCards, function(card) {
-            return self.isDiscardable(card)
+          return this.discardables(userName) === undefined && this.isActiveUser(userName) && !this.selectingColor
+        },
+        discardables: function(userName) {
+          return _.filter(this.users[userName].handCards, function(card) {
+            return vm.isDiscardable(card)
           })
-
-          return discardables === undefined && this.isActiveUser(userName) && !this.selectingColor
         },
         isSelectingColor: function(userName) {
           return this.selectingColor === userName
@@ -361,7 +361,9 @@
               if (self.allUserFinished) {
                 self.endGame()
               } else {
-                self.turn()
+                if (self.discardables(self.activeUserName).length === 0) {
+                  self.turn()
+                }
               }
             })
         }
