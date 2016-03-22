@@ -51,7 +51,7 @@
     </div>
     <div id="info-area">
       <card :card="lastDiscardCard" class="big"></card>
-      <span v-model="direction"></span>
+      <span class="deposit-card">+{{ depositCard }}</span>
     </div>
   </div>
 
@@ -107,6 +107,13 @@
               })
             }
           },
+          "draw2": {
+            shortName: "+2",
+            effect: function(resolve) {
+              vm.depositCard += 2
+              resolve()
+            }
+          }
         },
         cards: [
           { color: "red", number: 1 },
@@ -161,10 +168,6 @@
           { type: "wild" },
           { type: "wild" },
           { type: "wild" },
-          { type: "wild" },
-          { type: "wild" },
-          { type: "wild" },
-          { type: "wild" },
           { type: "skip", color: "red" },
           { type: "skip", color: "blue" },
           { type: "skip", color: "yellow" },
@@ -173,6 +176,10 @@
           { type: "skip", color: "blue" },
           { type: "skip", color: "yellow" },
           { type: "skip", color: "green" },
+          { type: "draw2", color: "red" },
+          { type: "draw2", color: "blue" },
+          { type: "draw2", color: "yellow" },
+          { type: "draw2", color: "green" },
         ],
         drawCards: [], // 後ろに行くほど上
         discardCards: [],
@@ -180,6 +187,8 @@
         activeUserIndex: 0, // ターンが回っているuser
         direction: +1,
         selectingColor: false,
+        depositCard: 0, // drawで溜まっていく
+        discardCurrentTurn: [], // このターンで捨てたカード(イマイチな実装)
       },
       created: function() {
 
@@ -221,6 +230,9 @@
         allUserFinished: function() {
           return !_.find(this.users, function(user) { return !user.finished }) // !finishedなユーザがいるか確認
         },
+        isDrawChaining: function() {
+          return this.depositCard > 0
+        }
       },
       methods: {
         addUser: function() {
@@ -268,6 +280,7 @@
           // vm.$set("users", a) いらなかった https://vuejs.org/guide/reactivity.html
 
           this.discardCards.push(card)
+          this.discardCurrentTurn.push(card)
         },
         effectCard: function(card) {
           var self = this
@@ -288,6 +301,11 @@
         skip: function(userName, times) {
           this.nextUser.remainingSkip += times
         },
+        drawDeposit: function(userName) {
+          alert(userName + "が" + this.depositCard + "枚ドローします")
+          this.draw(userName, this.depositCard)
+          this.depositCard = 0
+        },
         chargeDrawCards: function() {
           this.drawCards = _.shuffle(this.cards)
           this.discardCards = []
@@ -296,13 +314,36 @@
           alert(userName + "があがりました")
           this.users[userName].finished = true
         },
-        turn: function() {
+        turn: function() { // このあたりのメソッド分けが難しい
+          if (this.isDrawChaining && // ドロー連鎖中で
+              this.lastDiscardCard.type !== "draw2" &&
+              this.lastDiscardCard.type !== "draw4" ) { // +2や+4を出せなかった
+            this.drawDeposit(this.activeUserName)
+          }
+
+          this.checkFinish(this.activeUserName)
+          if (this.allUserFinished) {
+            this.endGame()
+          }
+
+          this.discardCurrentTurn = []
+
+          this.turnActiveUser()
+          this.turnSetup()
+        },
+        turnActiveUser: function() {
           this.activeUserIndex = this.nextUserIndex
 
-          if (this.activeUser.finished) { this.turn() }
+          if (this.activeUser.finished) { this.turnActiveUser() }
           if (this.activeUser.remainingSkip > 0) {
             this.activeUser.remainingSkip--
-            this.turn()
+            this.turnActiveUser()
+          }
+        },
+        turnSetup: function() {
+          // ドロー連鎖中に、(全ターンのdrawに対するものが)何も出せないとき
+          if (this.isDrawChaining && this.discardables(this.activeUserName).length === 0) {
+            this.drawDeposit(this.activeUserName)
           }
         },
         endGame: function() {
@@ -315,12 +356,19 @@
         isDiscardable: function(card) { // 命名に悩む
           // number === undefinedだが、number === numberなケース: lastDiscardCardがWild, cardがReverseとか。これは弾く
           // type === undefinedだが、type === typeなケース: lastDiscardCardが普通のnumber, cardがこれまた普通のnumber
-          if ((card.number !== undefined && this.lastDiscardCard.number === card.number) ||
-              (card.color  !== undefined && this.lastDiscardCard.color  === card.color)  ||
-              (card.type   !== undefined && this.lastDiscardCard.type   === card.type)   ||
-              this.lastDiscardCard === "None" ||
-              this.lastDiscardCard.color === undefined ||
-              card.color === undefined) {
+          // draw2がlastDiscardCardなら色が同じでも捨てられない(ドロー連鎖中/ドローを一回出した後)
+          // ドロー連鎖が終わった時のdrawカードにはこのルールが適用されない
+          if (!(this.isDrawChaining &&
+                this.lastDiscardCard.type === "draw2" && card.type !== "draw2") &&
+              (
+                (card.number !== undefined && this.lastDiscardCard.number === card.number) ||
+                (card.color  !== undefined && this.lastDiscardCard.color  === card.color)  ||
+                (card.type   !== undefined && this.lastDiscardCard.type   === card.type)   ||
+                this.lastDiscardCard === "None" ||
+                this.lastDiscardCard.color === undefined ||
+                card.color === undefined
+              )
+            ) {
             return true
           }
 
@@ -331,7 +379,11 @@
           return this.isActiveUser(userName) && this.isDiscardable(card) && !this.selectingColor
         },
         shouldDraw: function(userName) { // カードを引くべきか
-          return this.discardables(userName) === undefined && this.isActiveUser(userName) && !this.selectingColor
+          return this.discardCurrentTurn.length === 0 &&
+                 this.discardables(userName).length === 0 &&
+                 this.isActiveUser(userName) &&
+                 !this.selectingColor &&
+                 !this.isDrawChaining // ドロー連鎖中は引いて+2を出すなどありえない
         },
         discardables: function(userName) {
           return _.filter(this.users[userName].handCards, function(card) {
@@ -357,13 +409,8 @@
           this.discard(this.activeUserName, card) // 捨ててから効果発動
           this.effectCard(card)
             .then(function(){
-              self.checkFinish(self.activeUserName)
-              if (self.allUserFinished) {
-                self.endGame()
-              } else {
-                if (self.discardables(self.activeUserName).length === 0) {
-                  self.turn()
-                }
+              if (self.discardables(self.activeUserName).length === 0) {
+                self.turn()
               }
             })
         }
