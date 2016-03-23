@@ -37,6 +37,14 @@ body
     color red
   &.finished .user-name
     color blue
+  &.skipped
+    opacity 0.6
+  .user-stat
+    .remaining-skip
+      &::before
+        content "("
+      &::after
+        content ")"
 
 #setup
   margin-bottom 10px

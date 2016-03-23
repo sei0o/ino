@@ -16,8 +16,12 @@
     </div>
 
     <div id="users">
-      <div class="user" v-for="(userName, user) in users" v-bind:class="{'active': isActiveUser(userName), 'finished': user.finished}">
-        <div class="user-name">{{ userName }}</div>
+      <div class="user" v-for="(userName, user) in users"
+        v-bind:class="{'active': isActiveUser(userName), 'finished': user.finished, 'skipped': !!user.remainingSkip }">
+        <div class="user-stat">
+          <span class="user-name">{{ userName }}</span>
+          <span class="remaining-skip">{{ user.remainingSkip }}</span>
+        </div>
         <div class="cards" v-if="!user.finished">
           <!-- card要素にv-ifをつけると、card要素がx-templateで置き換えられた後でv-elseのcard要素が来るが、
                置換されたためv-ifが直前にいないので、無視されてしまう -->

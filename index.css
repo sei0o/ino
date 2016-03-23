@@ -45,6 +45,15 @@ body {
 .user.finished .user-name {
   color: #00f;
 }
+.user.skipped {
+  opacity: 0.6;
+}
+.user .user-stat .remaining-skip::before {
+  content: "(";
+}
+.user .user-stat .remaining-skip::after {
+  content: ")";
+}
 #setup {
   margin-bottom: 10px;
 }
