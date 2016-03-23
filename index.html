@@ -39,6 +39,7 @@
 </template> -->
         </div>
         <div class="action" v-if="!user.finished">
+          <button class="turn" v-if="canTurn(userName)" @click="turn()">ターンを終わる</button>
           <button class="draw" v-if="shouldDraw(userName)" @click="draw(userName, 1)">1枚引く</button>
           <div class="wild" v-if="isSelectingColor(userName)">
             <button data-color="red">赤</button>
@@ -315,12 +316,6 @@
           this.users[userName].finished = true
         },
         turn: function() { // このあたりのメソッド分けが難しい
-          if (this.isDrawChaining && // ドロー連鎖中で
-              this.lastDiscardCard.type !== "draw2" &&
-              this.lastDiscardCard.type !== "draw4" ) { // +2や+4を出せなかった
-            this.drawDeposit(this.activeUserName)
-          }
-
           this.checkFinish(this.activeUserName)
           if (this.allUserFinished) {
             this.endGame()
@@ -378,7 +373,10 @@
           // ターンが回っている && カードが捨てられる && Wild色選択中でない
           return this.isActiveUser(userName) && this.isDiscardable(card) && !this.selectingColor
         },
-        shouldDraw: function(userName) { // カードを引くべきか
+        canTurn: function(userName) {
+          return this.isActiveUser(userName) && this.discardCurrentTurn.length > 0 && !this.selectingColor
+        },
+        shouldDraw: function(userName) { // (自分のターンの時)カードを引くべきか
           return this.discardCurrentTurn.length === 0 &&
                  this.discardables(userName).length === 0 &&
                  this.isActiveUser(userName) &&
@@ -409,7 +407,7 @@
           this.discard(this.activeUserName, card) // 捨ててから効果発動
           this.effectCard(card)
             .then(function(){
-              if (self.discardables(self.activeUserName).length === 0) {
+              if (self.discardables(self.activeUserName).length === 0) { // 何も出せないなら
                 self.turn()
               }
             })
